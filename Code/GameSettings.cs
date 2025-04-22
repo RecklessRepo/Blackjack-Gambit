@@ -1,11 +1,15 @@
-// GameSettings.cs
 public static class GameSettings
 {
-    public enum Difficulty { Easy, Regular, Hard }
+    public enum Difficulty    { Easy, Regular, Hard }
+    public enum CountingMode  { Help, NoHelp }
 
-    // default so nothing breaks if scene is loaded directly
-    public static Difficulty DifficultyChosen = Difficulty.Regular;
+    public static Difficulty   DifficultyChosen   = Difficulty.Regular;
+    public static CountingMode CountingChosen     = CountingMode.NoHelp;
 
-    // convenience property you can query anywhere
-    public static bool UseGambits => DifficultyChosen == Difficulty.Hard;
+    // NEW!
+    public static bool IsCountingSession = false;
+
+    public static bool UseGambits       => DifficultyChosen == Difficulty.Hard;
+    public static bool ShowRunningCount => IsCountingSession  
+                                         && CountingChosen  == CountingMode.Help;
 }

@@ -52,6 +52,8 @@ public class PlayerScript : MonoBehaviour
         // Check if we should use an 11 instead of a 1
 
         cardIndex++;
+        AceCheck();
+        FindObjectOfType<GameManager>().UpdateRunningCount(cardValue);
         return handValue;
     }
 

@@ -23,8 +23,21 @@ public class GameManager : MonoBehaviour
     public GameObject hideCard;
     public int pot=0;
 
+    public TMP_Text runningCountText;
+    private int runningCount = 0;
+
     private int playerBet = 0;
     private int standClicks = 0;
+
+    private int handsPlayed = 0;
+
+    // --- new prompt panel references (assign these in the Inspector!) ---
+    [Header("No‑Help Count Prompt")]
+    public GameObject     countPromptPanel; 
+    public TMP_Text       promptInstructions; 
+    public TMP_InputField promptInput;         
+    public Button         promptCheckButton;   
+
 
     public PlayerScript playerScript;
     public PlayerScript dealerScript;
@@ -35,6 +48,16 @@ public class GameManager : MonoBehaviour
         HitB.onClick.AddListener(() => HitClicked());
         StandB.onClick.AddListener(() => StandClicked());
         BetB.onClick.AddListener(() => BetClicked());
+
+        promptCheckButton.onClick.AddListener(OnCheckCount);
+        
+        runningCount = 0;
+        bool show = GameSettings.ShowRunningCount;
+        runningCountText.gameObject.SetActive(show);
+        if (show)
+        runningCountText.text = "Count: 0";
+
+        countPromptPanel.SetActive(false);
     }
 
     private void DealClicked()
@@ -59,49 +82,86 @@ public class GameManager : MonoBehaviour
         dealerText.text = "Hand: " + dealerScript.handValue.ToString();
         // Place card back on dealer card, hide card
         hideCard.GetComponent<Renderer>().enabled = true;
+        Debug.Log("I GOT TO THIS PART");
         // Adjust buttons visibility
         DealB.gameObject.SetActive(false);
         HitB.gameObject.SetActive(true);
         StandB.gameObject.SetActive(true);
         BetB.gameObject.SetActive(false);
         standBText.text = "Stand";
-        
+
+        // show or hide the counter depending on mode
+        runningCountText.gameObject.SetActive(GameSettings.ShowRunningCount);
+        if (GameSettings.ShowRunningCount) runningCountText.text = "Count: " + runningCount;
+
+        //for no help mode
+        if (!GameSettings.ShowRunningCount)
+            handsPlayed++;
         
         cashText.text = "$" + playerScript.GetMoney();
     }
-    private void HitClicked()
+
+   private void HitClicked()
     {
-        hideCard.GetComponent<Renderer>().enabled = true;
-         // Check that there is still room on the table
         if (playerScript.cardIndex <= 10)
         {
             playerScript.GetCard();
-            scoreText.text = "Hand: " + playerScript.handValue.ToString();
-            if (playerScript.handValue > 20) RoundOver();
+            scoreText.text = "Hand: " + playerScript.handValue;
+
+            if (playerScript.handValue > 20)
+            {
+                RoundOver();
+            }
         }
     }
     private void StandClicked()
     {
-        HitB.gameObject.SetActive(false);
-        standClicks++;
-        if (standClicks > 1) RoundOver();
-        HitDealer();
-        standBText.text = "Call";
+    HitB.gameObject.SetActive(false);
+    standClicks++;
+    hideCard.GetComponent<Renderer>().enabled = false;
+    HitDealer();   // let dealer play out their turn
+    RoundOver();   // then settle the round
+    standBText.text = "Call";
     }
 
 
     private void HitDealer()
+{
+    switch (GameSettings.DifficultyChosen)
     {
+        /* ---------------- Easy ---------------- */
+        case GameSettings.Difficulty.Easy:
+            // Dealer stops at ANY 15 or more
+            while (dealerScript.handValue <= 16 && dealerScript.cardIndex < 10)
+                DealToDealer();
+            break;
 
-        while (dealerScript.handValue < 17 && dealerScript.cardIndex < 10)
-        {
-            hideCard.GetComponent<Renderer>().enabled = true;
-            dealerScript.GetCard();
-            dealerText.text = "Hand: " + dealerScript.handValue.ToString();
-            if (dealerScript.handValue > 20) RoundOver();
-        }
-    
+        /* ------------- Regular ---------------- */
+        case GameSettings.Difficulty.Regular:
+            // Dealer stops at hard/soft 17 or more
+            while (dealerScript.handValue <= 17 && dealerScript.cardIndex < 10)
+                DealToDealer();
+            break;
+
+        /* -------------- Hard ------------------ */
+        case GameSettings.Difficulty.Hard:
+            // Dealer must hit on 17 (we added earlier)
+            while (dealerScript.handValue < 17 && dealerScript.cardIndex < 10)
+                DealToDealer();
+            break;
     }
+
+    if (dealerScript.handValue > 21) RoundOver();   // auto‑settle on bust
+    }
+
+/* helper so we don’t duplicate two lines */
+    private void DealToDealer()
+    {
+        dealerScript.GetCard();
+        UpdateRunningCount(dealerScript.hand[dealerScript.cardIndex-1].GetComponent<CardScript>().GetValueOfCard());
+        dealerText.text = "Hand: " + dealerScript.handValue;
+    }
+
 
     void RoundOver()
     {
@@ -127,8 +187,13 @@ public class GameManager : MonoBehaviour
         // if dealer busts, player didnt, or player has more points, player wins
         else if (dealerBust || playerScript.handValue > dealerScript.handValue)
         {
+            int payout = pot;
+            // Easy: 2 × pot  |  Regular: 3/2 pot  |  Hard: normal
+            if (GameSettings.DifficultyChosen == GameSettings.Difficulty.Easy)     payout = pot * 2;
+            else if (GameSettings.DifficultyChosen == GameSettings.Difficulty.Regular) payout = (int)(pot * 1.5f);
+
+            playerScript.AdjustMoney(payout);
             mainText.text = "You win!";
-            playerScript.AdjustMoney(pot);
         }
         //Check for tie, return bets
         else if (playerScript.handValue == dealerScript.handValue)
@@ -154,11 +219,56 @@ public class GameManager : MonoBehaviour
 
             pot = 0;
             playerBet = 0;
-            betText.text = "Bets: $0";
+            betText.text = "Pot: $0";
             BetB.interactable = true;
             BetB.gameObject.SetActive(true);
+
+             if (GameSettings.IsCountingSession && GameSettings.CountingChosen == GameSettings.CountingMode.NoHelp && handsPlayed >= 5)
+            {
+                ShowCountPrompt();
+                return;
+            }
         }
-        return;
+    }
+
+    private void ShowCountPrompt()
+    {
+        // disable Deal so they can’t skip it
+        DealB.interactable = false;
+
+        // show & clear input
+        countPromptPanel.SetActive(true);
+        promptInput.text = "";
+        promptInstructions.text = "Enter the running count:";
+        mainText.gameObject.SetActive(false);
+    }
+
+    private void OnCheckCount()
+    {
+        // parse the player’s entry
+        int answer = 0;
+        int.TryParse(promptInput.text, out answer);
+
+        // award / penalty
+        if (answer == runningCount)
+        {
+            playerScript.AdjustMoney(100);
+            ShowMessage("Correct! +$100");
+        }
+        else
+        {
+            playerScript.AdjustMoney(-100);
+            ShowMessage($"Wrong (was {runningCount}). -$100");
+        }
+
+        cashText.text = "$" + playerScript.GetMoney();
+
+        // hide prompt & re‑enable Deal
+        countPromptPanel.SetActive(false);
+        DealB.interactable = true;
+
+        // reset the 5‑hand counter
+        handsPlayed = 0;
     }
 
     // Add money to pot if bet clicked
@@ -175,14 +285,12 @@ public class GameManager : MonoBehaviour
         pot += intBet * 2;                     // add both player + dealer share
         betText.text = "Pot: $" + pot;        // refresh label
 
-        hideCard.GetComponent<Renderer>().enabled = true;
-
     }
 
     public void DoublePot()
     {
         pot *= 2;
-        betText.text = "Bets: $" + pot;
+        betText.text = "Pot: $" + pot;
     }
 
     public void UpdateScoreTexts()
@@ -196,4 +304,28 @@ public class GameManager : MonoBehaviour
         mainText.text = msg;
         mainText.gameObject.SetActive(true);
     }
+
+    private void ShowCoverCard()
+    {
+        var cs = hideCard.GetComponent<CardScript>();
+        cs.ResetCard();  // force the back sprite, hopefully fix the bug
+        hideCard.GetComponent<Renderer>().enabled = true;
+    }
+
+    private void HideCoverCard()
+    {
+        hideCard.GetComponent<Renderer>().enabled = false;
+    }
+
+    public void UpdateRunningCount(int cardValue)
+    {
+    // Hi‑Low: 2‑6 => +1, 7‑9 => 0, 10/A => –1
+    if (cardValue >= 2 && cardValue <= 6)      runningCount++;
+    else if (cardValue == 1 || cardValue == 10) runningCount--;
+
+    if (GameSettings.ShowRunningCount)
+        runningCountText.text = "Count: " + runningCount;
+    }
+
+    
 }

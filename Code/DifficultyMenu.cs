@@ -21,9 +21,14 @@ public class DifficultyMenu : MonoBehaviour
         hardButton   .onClick.AddListener(() => StartGame(GameSettings.Difficulty.Hard));
     }
 
-    private void StartGame(GameSettings.Difficulty diff)
+    private void StartGame(GameSettings.Difficulty mode)
     {
-        GameSettings.DifficultyChosen = diff;      // store choice for the next scene
-        SceneManager.LoadScene(gameSceneName);     // load play scene
+    GameSettings.DifficultyChosen = mode;
+
+    // **reset** card‑counting mode back to NoHelp
+    GameSettings.CountingChosen  = GameSettings.CountingMode.NoHelp;
+    GameSettings.IsCountingSession  = false;
+
+    SceneManager.LoadScene(gameSceneName);
     }
 }

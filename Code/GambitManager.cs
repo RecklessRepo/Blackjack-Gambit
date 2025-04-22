@@ -2,17 +2,21 @@ using UnityEngine;
 
 public static class GambitManager
 {
+
+    static GameManager GM() => Object.FindObjectOfType<GameManager>();
+
     public static void TriggerRandomGambit()
     {
-        int roll = Random.Range(0, 2);   // sample pool
+        int roll = Random.Range(0, 4);   // 0‑4  (five Gambits total)
         switch (roll)
         {
-            case 0: DoublePot(); break;
-            case 1: FreeHit();   break;
+            case 0: DoublePot();       break;
+            case 1: FreeHit();         break;
+            case 4: InsuranceFraud();  break;
         }
     }
 
-    /* ---- Sample Gambit effects ----------------------------------- */
+    /* Gambit effects */
 
     static void DoublePot()
     {
@@ -31,6 +35,15 @@ public static class GambitManager
     }
 
 
-
-
+    static void InsuranceFraud()
+    {
+        var gm = GM();
+        int refund = gm.pot / 2;
+        gm.playerScript.AdjustMoney(refund);
+        gm.pot -= refund;
+        gm.cashText.text = "$" + gm.playerScript.GetMoney();
+        gm.betText.text = "Bets: $" + gm.pot;
+        gm.ShowMessage($"GAMBIT! Insurance Fraud ‑ you stole ${refund} back!");
+    }
+    
 }

@@ -21,21 +21,19 @@ public class DeckScript : MonoBehaviour
     {
         cardValues.Clear();
 
-        // skip index 0 (card back)
         for (int i = 1; i < cardSprites.Count; i++)
         {
-            int val = (i - 1) % 13 + 1;             // 1‑13
-            val = (val > 10) ? 10 : val;            // face = 10
+            int val = (i - 1) % 13 + 1;             
+            val = (val > 10) ? 10 : val;            
             cardValues.Add(val);
         }
 
-        // Optional Gambits
         if (GameSettings.UseGambits && gambitSprites.Count > 0)
         {
             foreach (Sprite g in gambitSprites)
             {
                 cardSprites.Add(g);
-                cardValues.Add(-99);                // sentinel = Gambit
+                cardValues.Add(-99);                
             }
         }
 
