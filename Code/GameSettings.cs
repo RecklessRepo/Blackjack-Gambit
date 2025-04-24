@@ -8,6 +8,7 @@ public static class GameSettings
 
     // NEW!
     public static bool IsCountingSession = false;
+    public static int NumberOfDecks = 1;
 
     public static bool UseGambits       => DifficultyChosen == Difficulty.Hard;
     public static bool ShowRunningCount => IsCountingSession  
